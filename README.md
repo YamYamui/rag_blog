@@ -2,7 +2,7 @@
 
 A zero-backend, client-side Retrieval-Augmented Generation (RAG) portfolio site. The AI model and all search computation runs entirely in the visitor's browser — no server, no API keys, no costs.
 
-**Live demo:** `https://<your-username>.github.io/<your-repo>/`
+**GitHub Pages::** 
 
 ---
 
