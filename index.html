@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Ask Kwan Tze anything about his engineering projects, skills, and experience. Powered by a local AI model running entirely in your browser." />
+
+  <script src="./coi-serviceworker.js"></script>
+
+  <title>Kwan Tze · Ask Me Anything</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+
+  <div class="app">
+
+    <!-- ── Sidebar toggle (mobile) ──────────────────────────────────────── -->
+    <button class="sidebar__toggle" id="sidebar-toggle" aria-label="Toggle menu">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
+    <aside class="sidebar" id="sidebar" role="navigation" aria-label="Main navigation">
+      <div class="sidebar__header">
+        <span class="sidebar__logo">KT</span>
+        <span class="sidebar__title">Kwan Tze</span>
+      </div>
+
+      <nav class="sidebar__nav">
+        <a href="#/chat" class="sidebar__link sidebar__link--active" data-page="chat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Chat
+        </a>
+
+        <div class="sidebar__divider"></div>
+        <span class="sidebar__section-title">Knowledge Base</span>
+
+        <a href="#/about" class="sidebar__link" data-page="about">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
+          About
+        </a>
+        <a href="#/projects" class="sidebar__link" data-page="projects">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          Projects
+        </a>
+        <a href="#/work-experience" class="sidebar__link" data-page="work-experience">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+          Work Experience
+        </a>
+        <a href="#/hackathons" class="sidebar__link" data-page="hackathons">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Hackathons
+        </a>
+        <a href="#/student-life" class="sidebar__link" data-page="student-life">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a5 5 0 0 0-5 5c0 3.9 5 10 5 10s5-6.1 5-10a5 5 0 0 0-5-5z"/><path d="M5 22h14"/></svg>
+          Student Life
+        </a>
+        <a href="#/education" class="sidebar__link" data-page="education">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.1 2.7 2 6 2s6-.9 6-2v-5"/></svg>
+          Education
+        </a>
+        <a href="#/skills" class="sidebar__link" data-page="skills">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          Skills
+        </a>
+      </nav>
+    </aside>
+
+    <!-- ── Main content ─────────────────────────────────────────────────── -->
+    <div class="main">
+
+      <!-- Chat page -->
+      <div id="page-chat" class="page page--active">
+        <div class="chat-container" id="chat-container">
+          <div id="chat-welcome" class="chat-welcome">
+            <h1>Ask me anything.</h1>
+            <p>
+                This assistant knows my projects, skills, and experience.
+                <br />
+                R<del>AG</del> system runs locally in your browser.
+                <br />
+                No LLM API calls, no data sent to servers. Just ask a question and see how it works!
+            </p>
+            <div class="chips" id="suggested-chips" aria-label="Suggested questions"></div>
+          </div>
+          <div
+            id="chat"
+            class="chat-messages"
+            role="log"
+            aria-live="polite"
+            aria-label="Conversation"
+            aria-relevant="additions"
+          ></div>
+        </div>
+
+        <div class="input-area">
+          <form class="input-wrapper" id="query-form" action="javascript:void(0)">
+            <input
+              id="query-input"
+              type="text"
+              placeholder="Ask about projects, skills, or experience…"
+              autocomplete="off"
+              spellcheck="false"
+              maxlength="500"
+              aria-label="Ask a question"
+            />
+            <button id="send-btn" type="submit" aria-label="Send" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </button>
+          </form>
+          <div class="status-row" role="status" aria-live="polite">
+            <span id="status">Initialising…</span>
+            <div class="progress-track" aria-hidden="true">
+              <div
+                id="progress-bar"
+                role="progressbar"
+                aria-label="Model download progress"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow="0"
+              ></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Knowledge base page -->
+      <div id="page-kb" class="page">
+        <div class="kb-page">
+          <article id="kb-content" class="kb-article"></article>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+# .github/workflows/deploy.yml
+#
+# Builds the RAG vector index, bundles with Vite, and deploys to GitHub Pages.
+#
+# Cross-Origin Isolation (SharedArrayBuffer) is handled by public/coi-serviceworker.js,
+# which is already committed to the repo and copied into dist/ by Vite automatically.
+# No special header configuration is needed — the service worker intercepts responses
+# and adds COOP/COEP headers client-side on first load, then reloads.
+
+name: Build & Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache embedding model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: transformers-all-miniLM-l6-v2
+
+      - name: Generate vector index
+        run: node scripts/build-index.mjs
+
+      - name: Vite production build
+        run: npx vite build
+        env:
+          NODE_ENV: production
+
+      - name: Verify dist/ integrity
+        run: |
+          echo "── dist/ listing ──"
+          ls -lh dist/
+
+          echo ""
+          echo "── Verify coi-serviceworker.js is present ──"
+          test -f dist/coi-serviceworker.js \
+            && echo " coi-serviceworker.js present" \
+            || (echo " MISSING: coi-serviceworker.js" && exit 1)
+
+          echo ""
+          echo "── Verify index.json ──"
+          test -f dist/index.json \
+            && echo " index.json present ($(du -sh dist/index.json | cut -f1))" \
+            || (echo " MISSING: dist/index.json" && exit 1)
+
+          echo ""
+          echo "── Validate index.json structure ──"
+          node -e "
+            const fs = require('fs');
+            const data = JSON.parse(fs.readFileSync('dist/index.json','utf8'));
+            if (!Array.isArray(data) || data.length === 0) throw new Error('Empty or invalid index');
+            const r = data[0];
+            ['id','title','url','text','vector'].forEach(k => {
+              if (!(k in r)) throw new Error('Missing field: ' + k);
+            });
+            if (!Array.isArray(r.vector) || r.vector.length < 100)
+              throw new Error('Vector looks wrong: ' + r.vector.length + ' dims');
+            console.log(' index.json valid —', data.length, 'chunks,', r.vector.length, 'dims');
+          "
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
