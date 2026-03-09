@@ -742,6 +742,7 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
 /* ─── Embedding map ──────────────────────────────────────────────────────── */
 .dm-map-section {
   padding: 0 1rem 1rem;
+  position: relative;
 }
 
 .dm-map-canvas {
@@ -782,6 +783,118 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
   background: #ef4444;
   transform: rotate(45deg);
   flex-shrink: 0;
+}
+
+/* ─── Map tooltip ──────────────────────────────────────────────────────── */
+.dm-map-tooltip {
+  display: none;
+  position: absolute;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font: 600 10px/1.3 var(--font-mono, monospace);
+  color: var(--fg);
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 10;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+  transform: translateX(-50%);
+}
+
+/* ─── Session stats bar ────────────────────────────────────────────────── */
+.dm-session-bar {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding: 6px 8px;
+  background: var(--accent-subtle, #f0f4ff);
+  border-radius: 6px;
+  margin-bottom: 10px;
+  animation: dm-fadeIn 0.3s ease;
+}
+.dm-session-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font: 600 11px/1 var(--font-mono, monospace);
+  color: var(--fg-muted, #555);
+  background: var(--bg);
+  border-radius: 4px;
+  padding: 3px 6px;
+}
+.dm-session-icon {
+  font-size: 12px;
+}
+
+/* ─── Collapsible sections ─────────────────────────────────────────────── */
+.dm-section-toggle {
+  all: unset;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  cursor: pointer;
+  padding: 4px 0;
+  user-select: none;
+}
+.dm-section-toggle:hover { opacity: 0.7; }
+.dm-section-arrow {
+  font-size: 10px;
+  transition: transform 0.15s ease;
+  color: var(--fg-muted, #888);
+}
+.dm-section-body {
+  animation: dm-slideDown 0.2s ease;
+}
+.dm-section-body[hidden] {
+  display: none;
+}
+
+/* ─── Try-next prompt ──────────────────────────────────────────────────── */
+.dm-try-next {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  background: var(--bg);
+  border: 1px dashed var(--border);
+  animation: dm-fadeIn 0.35s ease;
+}
+.dm-try-next__label {
+  font: 600 11px/1 var(--font-sans, sans-serif);
+  color: var(--fg-muted, #777);
+  white-space: nowrap;
+}
+.dm-try-next__btn {
+  all: unset;
+  cursor: pointer;
+  font: 500 11px/1.3 var(--font-sans, sans-serif);
+  color: var(--accent);
+  background: var(--accent-subtle, #f0f4ff);
+  padding: 3px 8px;
+  border-radius: 4px;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+.dm-try-next__btn:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ─── Animations ───────────────────────────────────────────────────────── */
+@keyframes dm-fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes dm-slideDown {
+  from { opacity: 0; max-height: 0; }
+  to   { opacity: 1; max-height: 600px; }
 }
 
 /* ─── Responsive ─────────────────────────────────────────────────────────── */

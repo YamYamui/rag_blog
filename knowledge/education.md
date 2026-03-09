@@ -7,7 +7,7 @@ tags: [education, academic background, nus, eunoia]
 # Education
 
 ## National University of Singapore
-*Jun 2025 - Nov 2025*
+*Aug 2025 - May 2029*
 
 Bachelor of Engineering in Computer Engineering  
 

@@ -2,6 +2,12 @@
 // Renders the retrieval debug panel.
 // All DOM manipulation for the panel lives here.
 
+// ─── Session state ────────────────────────────────────────────────────────────
+let queryCount    = 0;
+let bestCosine    = 0;
+let fastestMs     = Infinity;
+let totalLatency  = 0;
+
 /**
  * Inject the debug panel shell into the page.
  * Call once at startup. The panel starts collapsed.
@@ -48,50 +54,111 @@ panelEl.innerHTML = `
  * @param {object}      metrics  — output of buildMetrics() from metrics.js
  */
 export function renderMetrics(bodyEl, metrics) {
+  // Track session stats
+  queryCount++;
+  totalLatency += metrics.timing.totalMs;
+  if (metrics.topCosineSimilarity > bestCosine) bestCosine = metrics.topCosineSimilarity;
+  if (metrics.timing.totalMs < fastestMs) fastestMs = metrics.timing.totalMs;
+  const avgLatency = Math.round(totalLatency / queryCount);
+
   // Update the badge in the toggle button header
   const badge = document.getElementById('debug-badge');
   if (badge) {
     badge.textContent = `${metrics.timing.totalMs}ms \u00B7 cos ${Number(metrics.topCosineSimilarity).toFixed(2)} \u00B7 overlap ${metrics.resultOverlap}`;
   }
 
+
+  // Exploration prompts — suggest queries that explore different KB regions
+  const EXPLORE_PROMPTS = [
+    'What is your tech stack?',
+    'Tell me about your leadership roles',
+    'What certifications do you have?',
+    'Describe your hackathon projects',
+    'What was your internship about?',
+    'How does this RAG system work?',
+    'What are your hobbies?',
+    'Tell me about CS6101',
+  ];
+  const nextPrompt = EXPLORE_PROMPTS[queryCount % EXPLORE_PROMPTS.length];
+
   bodyEl.innerHTML = `
+    <!-- Session stats bar -->
+    <div class="dm-session-bar">
+      <span class="dm-session-stat" title="Queries this session"><span class="dm-session-icon">#</span>${queryCount}</span>
+      <span class="dm-session-stat" title="Average latency"><span class="dm-session-icon">\u23f1</span>${avgLatency}ms avg</span>
+      <span class="dm-session-stat" title="Fastest query"><span class="dm-session-icon">\u26a1</span>${fastestMs}ms best</span>
+      <span class="dm-session-stat" title="Best cosine similarity"><span class="dm-session-icon">\u2605</span>${bestCosine.toFixed(3)}</span>
+    </div>
+
+    <!-- Embedding Map -->
+    <section class="dm-map-section">
+      <h3 class="dm-heading">Embedding Space
+        <span class="dm-info" title="2D PCA projection of all chunk vectors. Each dot is a knowledge chunk, coloured by source page. The red \u25c6 shows where your query lands. Top-5 retrieved chunks are larger and labelled.">\u2139</span>
+      </h3>
+      <canvas class="dm-map-canvas" id="dm-map-canvas" width="1" height="1"></canvas>
+      <div class="dm-map-tooltip" id="dm-map-tooltip"></div>
+      <div class="dm-map-legend" id="dm-map-legend"></div>
+    </section>
+
+    <!-- Try next -->
+    <div class="dm-try-next">
+      <span class="dm-try-next__label">Try next \u2192</span>
+      <button class="dm-try-next__btn" data-query="${esc(nextPrompt)}">${esc(nextPrompt)}</button>
+    </div>
+
     <div class="dm-grid">
 
       <!-- Query Analysis -->
-      <section class="dm-section">
-        <h3 class="dm-heading">Query Analysis</h3>
-        <dl class="dm-dl">
-          <dt>Raw query <span class="dm-info" title="The exact text you typed into the search box, before any processing.">ⓘ</span></dt>
-          <dd class="dm-mono">${esc(metrics.query)}</dd>
-          <dt>Tokenised terms (${metrics.queryTerms.length}) <span class="dm-info" title="Your query after lowercasing, removing punctuation, and filtering out common stop-words (e.g. 'the', 'is', 'and'). These are the actual keywords matched against the index.">ⓘ</span></dt>
-          <dd class="dm-mono dm-wrap">${metrics.queryTerms.map(t => `<span class="dm-tag">${esc(t)}</span>`).join(' ')}</dd>
-        </dl>
+      <section class="dm-section dm-collapsible" data-section="query">
+        <button class="dm-section-toggle" aria-expanded="true">
+          <span class="dm-section-arrow">\u25BC</span>
+          <h3 class="dm-heading" style="margin-bottom:0">Query Analysis</h3>
+        </button>
+        <div class="dm-section-body">
+          <dl class="dm-dl">
+            <dt>Raw query <span class="dm-info" title="The exact text you typed into the search box, before any processing.">\u24d8</span></dt>
+            <dd class="dm-mono">${esc(metrics.query)}</dd>
+            <dt>Tokenised terms (${metrics.queryTerms.length}) <span class="dm-info" title="Your query after lowercasing, removing punctuation, and filtering out common stop-words (e.g. 'the', 'is', 'and'). These are the actual keywords matched against the index.">\u24d8</span></dt>
+            <dd class="dm-mono dm-wrap">${metrics.queryTerms.map(t => `<span class="dm-tag">${esc(t)}</span>`).join(' ')}</dd>
+            <dt>Retriever mode <span class="dm-info" title="Which retriever is weighted more heavily based on query type heuristics.">\u24d8</span></dt>
+          </dl>
+        </div>
       </section>
 
       <!-- Timing -->
-      <section class="dm-section">
-        <h3 class="dm-heading">Timing</h3>
-        <dl class="dm-dl dm-timing">
-          ${timingRow('BM25',   metrics.timing.bm25Ms, false, 'Keyword-based sparse retrieval using term frequency and inverse document frequency.')}
-          ${timingRow('Dense',  metrics.timing.denseMs, false, 'Semantic retrieval — the query is embedded into a 384-dim vector and compared against all chunk vectors via cosine similarity.')}
-          ${timingRow('Fusion', metrics.timing.fusionMs, false, 'Reciprocal Rank Fusion (RRF) merges the BM25 and dense ranked lists into a single ranking.')}
-          ${timingRow('Total',  metrics.timing.totalMs, true, 'Total wall-clock time from query submission to results.')}
-        </dl>
+      <section class="dm-section dm-collapsible" data-section="timing">
+        <button class="dm-section-toggle" aria-expanded="true">
+          <span class="dm-section-arrow">\u25BC</span>
+          <h3 class="dm-heading" style="margin-bottom:0">Timing</h3>
+        </button>
+        <div class="dm-section-body">
+          <dl class="dm-dl dm-timing">
+            ${timingRow('BM25',   metrics.timing.bm25Ms, false, 'Keyword-based sparse retrieval using term frequency and inverse document frequency.')}
+            ${timingRow('Dense',  metrics.timing.denseMs, false, 'Semantic retrieval \u2014 the query is embedded into a 384-dim vector and compared against all chunk vectors via cosine similarity.')}
+            ${timingRow('Fusion', metrics.timing.fusionMs, false, 'Reciprocal Rank Fusion (RRF) merges the BM25 and dense ranked lists into a single ranking.')}
+            ${timingRow('Total',  metrics.timing.totalMs, true, 'Total wall-clock time from query submission to results.')}
+          </dl>
+        </div>
       </section>
 
       <!-- Index Stats -->
-      <section class="dm-section">
-        <h3 class="dm-heading">Index</h3>
-        <dl class="dm-dl">
-          <dt>Chunks <span class="dm-info" title="Total number of text chunks in the pre-built index. Each chunk is ~250 words, split on section headings.">ⓘ</span></dt><dd>${metrics.indexStats.documents}</dd>
-          <dt>Vocabulary <span class="dm-info" title="Number of unique terms across all chunks after tokenisation and stop-word removal.">ⓘ</span></dt><dd>${metrics.indexStats.vocabSize.toLocaleString()} terms</dd>
-          <dt>Avg chunk length <span class="dm-info" title="Average number of tokens per chunk. Longer chunks provide more context but may dilute relevance.">ⓘ</span></dt><dd>${metrics.indexStats.avgDocLength} tokens</dd>
-          <dt>Retriever overlap <span class="dm-info" title="Fraction of top-5 results that appear in both the BM25 and dense retriever lists. High overlap = both methods agree, suggesting higher confidence.">ⓘ</span></dt>
-          <dd>
-            <span class="dm-overlap-bar" style="--pct:${Number(metrics.resultOverlap)*100}%"></span>
-            ${Math.round(Number(metrics.resultOverlap)*100)}% of top-5 shared
-          </dd>
-        </dl>
+      <section class="dm-section dm-collapsible" data-section="index">
+        <button class="dm-section-toggle" aria-expanded="true">
+          <span class="dm-section-arrow">\u25BC</span>
+          <h3 class="dm-heading" style="margin-bottom:0">Index</h3>
+        </button>
+        <div class="dm-section-body">
+          <dl class="dm-dl">
+            <dt>Chunks <span class="dm-info" title="Total number of text chunks in the pre-built index. Each chunk is ~250 words, split on section headings.">\u24d8</span></dt><dd>${metrics.indexStats.documents}</dd>
+            <dt>Vocabulary <span class="dm-info" title="Number of unique terms across all chunks after tokenisation and stop-word removal.">\u24d8</span></dt><dd>${metrics.indexStats.vocabSize.toLocaleString()} terms</dd>
+            <dt>Avg chunk length <span class="dm-info" title="Average number of tokens per chunk. Longer chunks provide more context but may dilute relevance.">\u24d8</span></dt><dd>${metrics.indexStats.avgDocLength} tokens</dd>
+            <dt>Retriever overlap <span class="dm-info" title="Fraction of top-5 results that appear in both the BM25 and dense retriever lists. High overlap = both methods agree, suggesting higher confidence.">\u24d8</span></dt>
+            <dd>
+              <span class="dm-overlap-bar" style="--pct:${Number(metrics.resultOverlap)*100}%"></span>
+              ${Math.round(Number(metrics.resultOverlap)*100)}% of top-5 shared
+            </dd>
+          </dl>
+        </div>
       </section>
 
     </div>
@@ -99,79 +166,111 @@ export function renderMetrics(bodyEl, metrics) {
     <!-- Ranked Lists -->
     <div class="dm-lists">
 
-      <div class="dm-list">
-        <h3 class="dm-heading">BM25 Top 5</h3>
-        <table class="dm-table">
-          <thead><tr><th>#</th><th>Chunk ID</th><th>Score</th></tr></thead>
-          <tbody>
-            ${metrics.bm25Top5.map(r => `
-              <tr>
-                <td class="dm-rank">${r.rank}</td>
-                <td class="dm-mono dm-truncate">${esc(r.id)}</td>
-                <td class="dm-score">${r.score}</td>
-              </tr>`).join('')}
-          </tbody>
-        </table>
-      </div>
+      <section class="dm-list dm-collapsible" data-section="bm25">
+        <button class="dm-section-toggle" aria-expanded="true">
+          <span class="dm-section-arrow">\u25BC</span>
+          <h3 class="dm-heading" style="margin-bottom:0">BM25 Top 5</h3>
+        </button>
+        <div class="dm-section-body">
+          <table class="dm-table">
+            <thead><tr><th>#</th><th>Chunk ID</th><th>Score</th></tr></thead>
+            <tbody>
+              ${metrics.bm25Top5.map(r => `
+                <tr>
+                  <td class="dm-rank">${r.rank}</td>
+                  <td class="dm-mono dm-truncate">${esc(r.id)}</td>
+                  <td class="dm-score">${r.score}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-      <div class="dm-list">
-        <h3 class="dm-heading">Dense (Cosine) Top 5</h3>
-        <table class="dm-table">
-          <thead><tr><th>#</th><th>Chunk ID</th><th>Score</th></tr></thead>
-          <tbody>
-            ${metrics.denseTop5.map(r => `
-              <tr>
-                <td class="dm-rank">${r.rank}</td>
-                <td class="dm-mono dm-truncate">${esc(r.id)}</td>
-                <td class="dm-score">${r.score}</td>
-              </tr>`).join('')}
-          </tbody>
-        </table>
-      </div>
+      <section class="dm-list dm-collapsible" data-section="dense">
+        <button class="dm-section-toggle" aria-expanded="true">
+          <span class="dm-section-arrow">\u25BC</span>
+          <h3 class="dm-heading" style="margin-bottom:0">Dense (Cosine) Top 5</h3>
+        </button>
+        <div class="dm-section-body">
+          <table class="dm-table">
+            <thead><tr><th>#</th><th>Chunk ID</th><th>Score</th></tr></thead>
+            <tbody>
+              ${metrics.denseTop5.map(r => `
+                <tr>
+                  <td class="dm-rank">${r.rank}</td>
+                  <td class="dm-mono dm-truncate">${esc(r.id)}</td>
+                  <td class="dm-score">${r.score}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-      <div class="dm-list dm-list--fused">
-        <h3 class="dm-heading">Fused (RRF) Top 5</h3>
-        <table class="dm-table">
-          <thead>
-            <tr>
-              <th>#</th><th>Title</th>
-              <th title="Reciprocal Rank Fusion score">RRF</th>
-              <th title="BM25 rank in sparse list">B\u2191</th>
-              <th title="Dense rank in cosine list">D\u2191</th>
-              <th title="Cosine similarity">Cos</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${metrics.fusedTop5.map(r => `
+      <section class="dm-list dm-list--fused dm-collapsible" data-section="fused">
+        <button class="dm-section-toggle" aria-expanded="true">
+          <span class="dm-section-arrow">\u25BC</span>
+          <h3 class="dm-heading" style="margin-bottom:0">Fused (RRF) Top 5</h3>
+        </button>
+        <div class="dm-section-body">
+          <table class="dm-table">
+            <thead>
               <tr>
-                <td class="dm-rank">${r.rank}</td>
-                <td class="dm-truncate">${esc(r.title)}</td>
-                <td class="dm-score">${r.rrfScore}</td>
-                <td class="dm-rank ${r.bm25Rank === 1 ? 'dm-rank--top' : ''}">${r.bm25Rank ?? '\u2014'}</td>
-                <td class="dm-rank ${r.denseRank === 1 ? 'dm-rank--top' : ''}">${r.denseRank ?? '\u2014'}</td>
-                <td class="dm-score">${r.cosine}</td>
-              </tr>`).join('')}
-          </tbody>
-        </table>
-      </div>
+                <th>#</th><th>Title</th>
+                <th title="Reciprocal Rank Fusion score">RRF</th>
+                <th title="BM25 rank in sparse list">B\u2191</th>
+                <th title="Dense rank in cosine list">D\u2191</th>
+                <th title="Cosine similarity">Cos</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${metrics.fusedTop5.map(r => `
+                <tr>
+                  <td class="dm-rank">${r.rank}</td>
+                  <td class="dm-truncate">${esc(r.title)}</td>
+                  <td class="dm-score">${r.rrfScore}</td>
+                  <td class="dm-rank ${r.bm25Rank === 1 ? 'dm-rank--top' : ''}">${r.bm25Rank ?? '\u2014'}</td>
+                  <td class="dm-rank ${r.denseRank === 1 ? 'dm-rank--top' : ''}">${r.denseRank ?? '\u2014'}</td>
+                  <td class="dm-score">${r.cosine}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
     </div>
-
-    <!-- Embedding Map -->
-    <section class="dm-map-section">
-      <h3 class="dm-heading">Embedding Space
-        <span class="dm-info" title="2D PCA projection of all chunk vectors. Each dot is a knowledge chunk, coloured by source page. The red ◆ shows where your query lands. Top-5 retrieved chunks are larger and labelled.">&#9432;</span>
-      </h3>
-      <canvas class="dm-map-canvas" id="dm-map-canvas" width="1" height="1"></canvas>
-      <div class="dm-map-legend" id="dm-map-legend"></div>
-    </section>
   `;
 
+  // Wire collapsible sections
+  bodyEl.querySelectorAll('.dm-section-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const expanded = btn.getAttribute('aria-expanded') === 'true';
+      btn.setAttribute('aria-expanded', String(!expanded));
+      btn.nextElementSibling.hidden = expanded;
+      btn.querySelector('.dm-section-arrow').textContent = expanded ? '\u25B6' : '\u25BC';
+    });
+  });
+
+  // Wire "try next" button
+  const tryBtn = bodyEl.querySelector('.dm-try-next__btn');
+  if (tryBtn) {
+    tryBtn.addEventListener('click', () => {
+      const q = tryBtn.dataset.query;
+      const input = document.getElementById('query-input');
+      const form  = document.getElementById('query-form');
+      if (input && form) {
+        input.value = q;
+        form.dispatchEvent(new Event('submit', { bubbles: true }));
+      }
+    });
+  }
+
+  // Render embedding map with hover tooltips
   setTimeout(() => {
     const canvas   = document.getElementById('dm-map-canvas');
     const legendEl = document.getElementById('dm-map-legend');
+    const tooltip  = document.getElementById('dm-map-tooltip');
     if (canvas && metrics.chunksXY?.length) {
-      renderEmbeddingMap(canvas, legendEl, metrics.chunksXY, metrics.queryXY, metrics.fusedIds);
+      renderEmbeddingMap(canvas, legendEl, tooltip, metrics.chunksXY, metrics.queryXY, metrics.fusedIds);
     }
   }, 0);
 }
@@ -187,7 +286,7 @@ const SOURCE_PALETTE = {
   'work-experience': '#d97706',
 };
 
-function renderEmbeddingMap(canvasEl, legendEl, chunksXY, queryXY, fusedIds) {
+function renderEmbeddingMap(canvasEl, legendEl, tooltipEl, chunksXY, queryXY, fusedIds) {
   const W = 334, H = 220;
   const dpr = window.devicePixelRatio || 1;
   canvasEl.width  = W * dpr;
@@ -218,6 +317,9 @@ function renderEmbeddingMap(canvasEl, legendEl, chunksXY, queryXY, fusedIds) {
     ];
   }
 
+  // Build hit-test list (canvas coords + metadata)
+  const hitTargets = [];
+
   ctx.clearRect(0, 0, W, H);
 
   // Grid lines (subtle)
@@ -245,12 +347,13 @@ function renderEmbeddingMap(canvasEl, legendEl, chunksXY, queryXY, fusedIds) {
       ctx.strokeStyle = color;
       ctx.lineWidth = 1.5;
       ctx.stroke();
-      // Short label
       ctx.font = `bold 8px monospace`;
       ctx.fillStyle = color;
       const label = source.replace('work-experience', 'work').slice(0, 7);
       ctx.fillText(label, cx + 9, cy + 3);
     }
+
+    hitTargets.push({ cx, cy, r: Math.max(r, 6), id: chunk.id, source, isTop5 });
   }
 
   // Query marker (diamond)
@@ -271,6 +374,36 @@ function renderEmbeddingMap(canvasEl, legendEl, chunksXY, queryXY, fusedIds) {
     ctx.font = 'bold 8px monospace';
     ctx.fillStyle = '#ef4444';
     ctx.fillText('query', qx + 10, qy + 3);
+  }
+
+  // Hover / touch tooltip
+  if (tooltipEl) {
+    const showTooltip = (e) => {
+      const rect = canvasEl.getBoundingClientRect();
+      const mx = (e.clientX ?? e.touches?.[0]?.clientX ?? 0) - rect.left;
+      const my = (e.clientY ?? e.touches?.[0]?.clientY ?? 0) - rect.top;
+      let nearest = null, bestDist = 12; // max px distance
+      for (const t of hitTargets) {
+        const d = Math.hypot(t.cx - mx, t.cy - my);
+        if (d < bestDist) { bestDist = d; nearest = t; }
+      }
+      if (nearest) {
+        tooltipEl.style.display = 'block';
+        tooltipEl.style.left = nearest.cx + 'px';
+        tooltipEl.style.top  = (nearest.cy - 28) + 'px';
+        tooltipEl.textContent = nearest.id;
+        canvasEl.style.cursor = 'pointer';
+      } else {
+        tooltipEl.style.display = 'none';
+        canvasEl.style.cursor = '';
+      }
+    };
+    canvasEl.addEventListener('mousemove', showTooltip);
+    canvasEl.addEventListener('touchstart', showTooltip, { passive: true });
+    canvasEl.addEventListener('mouseleave', () => {
+      tooltipEl.style.display = 'none';
+      canvasEl.style.cursor = '';
+    });
   }
 
   // Legend
