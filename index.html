@@ -31,6 +31,7 @@
         <a href="#/chat" class="sidebar__link sidebar__link--active" data-page="chat">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           Chat
+          <span class="sidebar__badge">local</span>
         </a>
 
         <div class="sidebar__divider"></div>
@@ -40,13 +41,13 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
           About
         </a>
+          <a href="#/work-experience" class="sidebar__link" data-page="work-experience">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+          Work Experience
+        </a>
         <a href="#/projects" class="sidebar__link" data-page="projects">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
           Projects
-        </a>
-        <a href="#/work-experience" class="sidebar__link" data-page="work-experience">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
-          Work Experience
         </a>
         <a href="#/hackathons" class="sidebar__link" data-page="hackathons">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
@@ -74,56 +75,71 @@
 
       <!-- Chat page -->
       <div id="page-chat" class="page page--active">
-        <div class="chat-container" id="chat-container">
-          <div id="chat-welcome" class="chat-welcome">
-            <h1>Ask me anything.</h1>
-            <p>
-                This assistant knows my projects, skills, and experience.
-                <br />
-                R<del>AG</del> system runs locally in your browser.
-                <br />
-                No LLM API calls, no data sent to servers. Just ask a question and see how it works!
-            </p>
-            <div class="chips" id="suggested-chips" aria-label="Suggested questions"></div>
-          </div>
-          <div
-            id="chat"
-            class="chat-messages"
-            role="log"
-            aria-live="polite"
-            aria-label="Conversation"
-            aria-relevant="additions"
-          ></div>
-        </div>
-
-        <div class="input-area">
-          <form class="input-wrapper" id="query-form" action="javascript:void(0)">
-            <input
-              id="query-input"
-              type="text"
-              placeholder="Ask about projects, skills, or experience…"
-              autocomplete="off"
-              spellcheck="false"
-              maxlength="500"
-              aria-label="Ask a question"
-            />
-            <button id="send-btn" type="submit" aria-label="Send" disabled>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-            </button>
-          </form>
-          <div class="status-row" role="status" aria-live="polite">
-            <span id="status">Initialising…</span>
-            <div class="progress-track" aria-hidden="true">
+        <div class="chat-layout">
+          <div class="chat-main-column">
+            <div class="chat-container" id="chat-container">
+              <div id="chat-welcome" class="chat-welcome">
+                <div class="chat-welcome__badge">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                  100% client-side · No LLM · No server calls
+                </div>
+                <h1>Ask me anything.</h1>
+                <p>
+                    This assistant knows my projects, skills, and experience.
+                    <br />
+                    A pure <b>R</b><del>AG</del> system running entirely in your browser.
+                    <br />
+                    No LLM API calls, no data leaves your device.
+                </p>
+                <div class="chips" id="suggested-chips" aria-label="Suggested questions"></div>
+              </div>
               <div
-                id="progress-bar"
-                role="progressbar"
-                aria-label="Model download progress"
-                aria-valuemin="0"
-                aria-valuemax="100"
-                aria-valuenow="0"
+                id="chat"
+                class="chat-messages"
+                role="log"
+                aria-live="polite"
+                aria-label="Conversation"
+                aria-relevant="additions"
               ></div>
             </div>
+
+            <div class="input-area">
+              <form class="input-wrapper" id="query-form" action="javascript:void(0)">
+                <input
+                  id="query-input"
+                  type="text"
+                  placeholder="Ask about projects, skills, or experience…"
+                  autocomplete="off"
+                  spellcheck="false"
+                  maxlength="500"
+                  aria-label="Ask a question"
+                />
+                <button id="send-btn" type="submit" aria-label="Send" disabled>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
+              </form>
+              <div class="status-row" role="status" aria-live="polite">
+                <span id="status">Initialising…</span>
+                <div class="progress-track" aria-hidden="true">
+                  <div
+                    id="progress-bar"
+                    role="progressbar"
+                    aria-label="Model download progress"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                    aria-valuenow="0"
+                  ></div>
+                </div>
+              </div>
+            </div>
           </div>
+
+          <aside class="debug-sidebar" id="debug-sidebar" aria-label="Retrieval debug sidebar">
+            <!-- debug panel is injected here by src/main.js -->
+          </aside>
+          <button class="debug-sidebar-toggle" id="debug-sidebar-toggle" aria-label="Toggle debug panel" title="Toggle debug panel">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          </button>
         </div>
       </div>
 

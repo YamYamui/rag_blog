@@ -1,31 +1,49 @@
 // src/search.js
-import { BM25Index, tokenize } from './bm25.js';
+import { BM25Index } from './bm25.js';
+import { tokenize, LOW_CONFIDENCE_THRESHOLD, HIGH_CONFIDENCE_THRESHOLD } from './config.js';
 import { reciprocalRankFusion, hydrateResults } from './retrieval.js';
+
+function escapeForHighlight(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function highlightExcerpt(text, queryTerms) {
+  const safe = escapeForHighlight(text);
+  if (!queryTerms?.length) return safe;
+  const patterns = queryTerms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const re = new RegExp(`\\b(${patterns.join('|')})[a-z]*\\b`, 'gi');
+  return safe.replace(re, '<mark>$&</mark>');
+}
 
 /**
  * Format hydrated fused results into display-ready objects.
  *
  * @param {Array}  results      — output of hydrateResults()
  * @param {number} excerptLen
+ * @param {Array}  queryTerms   — stemmed query terms for highlighting
  * @returns {Array}
  */
-export function formatResults(results, excerptLen = 300) {
+export function formatResults(results, excerptLen = 300, queryTerms = []) {
   return results
     .filter(r => r.rrfScore > 0)
-    .map(r => ({
-      id:          r.id,
-      title:       r.title,
-      url:         r.url,
-      tags:        r.tags,
-      rrfScore:    r.rrfScore,
-      cosineScore: r.cosineScore,
-      bm25Score:   r.bm25Score,
-      bm25Rank:    r.bm25Rank,
-      denseRank:   r.denseRank,
-      excerpt:     r.text.length > excerptLen
+    .map(r => {
+      const excerpt = r.text.length > excerptLen
         ? r.text.slice(0, excerptLen).trimEnd() + '…'
-        : r.text,
-    }));
+        : r.text;
+      return {
+        id:          r.id,
+        title:       r.title,
+        url:         r.url,
+        tags:        r.tags,
+        rrfScore:    r.rrfScore,
+        cosineScore: r.cosineScore,
+        bm25Score:   r.bm25Score,
+        bm25Rank:    r.bm25Rank,
+        denseRank:   r.denseRank,
+        excerpt,
+        highlightedExcerpt: highlightExcerpt(excerpt, queryTerms),
+      };
+    });
 }
 
 /**
@@ -41,11 +59,11 @@ export function formatResults(results, excerptLen = 300) {
 export function bm25Fallback(query, indexData, cachedIndex = null, topK = 5) {
   const idx = cachedIndex ?? new BM25Index();
   if (!cachedIndex) idx.build(indexData);
-  const { results: bm25Raw } = idx.search(query, topK * 4);
+  const { results: bm25Raw, queryTerms } = idx.search(query, topK * 4);
   // Fallback: no dense vector, so just return BM25 as a single-list RRF
   const fused = reciprocalRankFusion([bm25Raw]);
   const results = hydrateResults(fused, indexData, bm25Raw, [], topK);
-  return { results, index: idx };
+  return { results, index: idx, queryTerms };
 }
 
 /**
@@ -62,9 +80,6 @@ export function validateQuery(text) {
   }
   return null;
 }
-
-const LOW_CONFIDENCE_THRESHOLD  = 0.25;
-const HIGH_CONFIDENCE_THRESHOLD = 0.50;
 
 /**
  * Synthesise a brief answer intro from the top results.

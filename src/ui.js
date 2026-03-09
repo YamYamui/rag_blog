@@ -76,7 +76,7 @@ export function appendAssistantMessage(chatEl, summary, sources) {
             </a>
             <span class="source-card__score">${s.rrfScore != null ? `RRF ${Number(s.rrfScore).toFixed(4)}` : ''}</span>
           </div>
-          <blockquote class="source-card__excerpt">${escapeHtml(s.excerpt)}</blockquote>
+          <blockquote class="source-card__excerpt">${s.highlightedExcerpt ?? escapeHtml(s.excerpt)}</blockquote>
         </div>`;
     }
     sourcesHtml += '</div>';

@@ -1,30 +1,9 @@
 // src/bm25.js
 // Pure JavaScript BM25 implementation. No dependencies.
-// Parameters k1=1.5, b=0.75 are standard Okapi BM25 defaults.
-//
-// IMPORTANT: tokenize() here must be byte-for-byte identical to the
-// tokenize() function in scripts/build-index.mjs. Both must agree on
-// what constitutes a token, or query terms won't match indexed terms.
 
-const K1 = 1.5;
-const B  = 0.75;
+import { BM25_K1 as K1, BM25_B as B, BM25_DELTA as DELTA, tokenize } from './config.js';
 
-const STOP_WORDS = new Set([
-  'a','an','the','and','or','but','in','on','at','to','for','of','with',
-  'by','from','is','are','was','were','be','been','being','have','has',
-  'had','do','does','did','will','would','could','should','may','might',
-  'this','that','these','those','it','its','i','you','he','she','we',
-  'they','what','which','who','when','where','how','all','as','up','out',
-  'if','about','into','than','then','so','no','not','also','can',
-]);
-
-export function tokenize(text) {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9\s\-_]/g, ' ')
-    .split(/\s+/)
-    .filter(t => t.length > 1 && !STOP_WORDS.has(t));
-}
+export { tokenize };
 
 export class BM25Index {
   constructor() {
@@ -104,7 +83,7 @@ export class BM25Index {
       for (const [t, idf] of idfs) {
         const tf = termFreqs.get(t) ?? 0;
         if (tf === 0) continue;
-        score += idf * (tf * (K1 + 1)) / (tf + K1 * lenNorm);
+        score += idf * ((tf * (K1 + 1)) / (tf + K1 * lenNorm) + DELTA);
       }
       scores[i] = { id, score };
     }

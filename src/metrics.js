@@ -15,7 +15,7 @@
  * @param {object}   p.indexStats     — { documents, vocabSize, avgDocLength }
  * @returns {object} metrics
  */
-export function buildMetrics({ query, queryTerms, bm25Results, denseResults, fusedResults, timing, indexStats }) {
+export function buildMetrics({ query, queryTerms, bm25Results, denseResults, fusedResults, timing, indexStats, queryXY, chunksXY }) {
   return {
     query,
     queryTerms,
@@ -45,6 +45,10 @@ export function buildMetrics({ query, queryTerms, bm25Results, denseResults, fus
     topBM25Score:           bm25Results[0]?.score ?? 0,
     queryTermsMatched:      queryTerms.length,
     resultOverlap:          computeOverlap(bm25Results.slice(0,5), denseResults.slice(0,5)),
+    // Embedding map data
+    queryXY:   queryXY  ?? null,
+    chunksXY:  chunksXY ?? [],
+    fusedIds:  new Set(fusedResults.map(r => r.id)),
   };
 }
 

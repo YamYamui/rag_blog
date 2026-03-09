@@ -9,17 +9,16 @@ tags: [skills, technologies, tools, languages, frameworks]
 ## Spoken Languages
 
 - English
-- Chinese (spoken and written)
+- Chinese
 
 ## Programming Languages
 
-- Python
 - C
 - C++
+- Python
 - TypeScript
-- SQL
 
-## Web Development
+## Frameworks & Tools
 
 - Git
 - GitHub
@@ -42,4 +41,3 @@ tags: [skills, technologies, tools, languages, frameworks]
 ## Certifications
 
 - Cisco Certified Network Associate (CCNA)
-- CS50AI

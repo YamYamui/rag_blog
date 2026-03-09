@@ -156,11 +156,134 @@ export function renderMetrics(bodyEl, metrics) {
       </div>
 
     </div>
+
+    <!-- Embedding Map -->
+    <section class="dm-map-section">
+      <h3 class="dm-heading">Embedding Space
+        <span class="dm-info" title="2D PCA projection of all chunk vectors. Each dot is a knowledge chunk, coloured by source page. The red ◆ shows where your query lands. Top-5 retrieved chunks are larger and labelled.">&#9432;</span>
+      </h3>
+      <canvas class="dm-map-canvas" id="dm-map-canvas" width="1" height="1"></canvas>
+      <div class="dm-map-legend" id="dm-map-legend"></div>
+    </section>
   `;
+
+  setTimeout(() => {
+    const canvas   = document.getElementById('dm-map-canvas');
+    const legendEl = document.getElementById('dm-map-legend');
+    if (canvas && metrics.chunksXY?.length) {
+      renderEmbeddingMap(canvas, legendEl, metrics.chunksXY, metrics.queryXY, metrics.fusedIds);
+    }
+  }, 0);
 }
 
-function timingRow(label, ms, bold = false, tooltip = '') {
-  const cls = bold ? ' dm-timing--total' : '';
+// ─── Embedding map ────────────────────────────────────────────────────────────────────
+const SOURCE_PALETTE = {
+  'about':           '#2563eb',
+  'education':       '#0891b2',
+  'hackathons':      '#ea580c',
+  'projects':        '#7c3aed',
+  'skills':          '#059669',
+  'student-life':    '#db2777',
+  'work-experience': '#d97706',
+};
+
+function renderEmbeddingMap(canvasEl, legendEl, chunksXY, queryXY, fusedIds) {
+  const W = 334, H = 220;
+  const dpr = window.devicePixelRatio || 1;
+  canvasEl.width  = W * dpr;
+  canvasEl.height = H * dpr;
+  canvasEl.style.width  = W + 'px';
+  canvasEl.style.height = H + 'px';
+
+  const ctx = canvasEl.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const PAD = 20;
+
+  // Compute bounds across all points including query
+  const allX = chunksXY.filter(c => c.xy).map(c => c.xy[0]);
+  const allY = chunksXY.filter(c => c.xy).map(c => c.xy[1]);
+  if (queryXY) { allX.push(queryXY[0]); allY.push(queryXY[1]); }
+  if (!allX.length) return;
+
+  const xMin = Math.min(...allX), xMax = Math.max(...allX);
+  const yMin = Math.min(...allY), yMax = Math.max(...allY);
+  const xRange = xMax - xMin || 1;
+  const yRange = yMax - yMin || 1;
+
+  function toCanvas(x, y) {
+    return [
+      PAD + ((x - xMin) / xRange) * (W - 2 * PAD),
+      H - PAD - ((y - yMin) / yRange) * (H - 2 * PAD),
+    ];
+  }
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid lines (subtle)
+  ctx.strokeStyle = 'rgba(0,0,0,0.04)';
+  ctx.lineWidth = 1;
+  const [ox, oy] = toCanvas(0, 0);
+  if (ox > PAD && ox < W - PAD) { ctx.beginPath(); ctx.moveTo(ox, PAD); ctx.lineTo(ox, H - PAD); ctx.stroke(); }
+  if (oy > PAD && oy < H - PAD) { ctx.beginPath(); ctx.moveTo(PAD, oy); ctx.lineTo(W - PAD, oy); ctx.stroke(); }
+
+  // Draw all chunk dots
+  for (const chunk of chunksXY) {
+    if (!chunk.xy) continue;
+    const source  = chunk.id.replace(/-chunk\d+$/, '');
+    const color   = SOURCE_PALETTE[source] ?? '#888888';
+    const isTop5  = fusedIds?.has(chunk.id);
+    const [cx, cy] = toCanvas(...chunk.xy);
+    const r = isTop5 ? 7 : 4;
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = isTop5 ? color : color + '55';
+    ctx.fill();
+
+    if (isTop5) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      // Short label
+      ctx.font = `bold 8px monospace`;
+      ctx.fillStyle = color;
+      const label = source.replace('work-experience', 'work').slice(0, 7);
+      ctx.fillText(label, cx + 9, cy + 3);
+    }
+  }
+
+  // Query marker (diamond)
+  if (queryXY) {
+    const [qx, qy] = toCanvas(...queryXY);
+    const s = 7;
+    ctx.beginPath();
+    ctx.moveTo(qx, qy - s);
+    ctx.lineTo(qx + s, qy);
+    ctx.lineTo(qx, qy + s);
+    ctx.lineTo(qx - s, qy);
+    ctx.closePath();
+    ctx.fillStyle = '#ef4444';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.font = 'bold 8px monospace';
+    ctx.fillStyle = '#ef4444';
+    ctx.fillText('query', qx + 10, qy + 3);
+  }
+
+  // Legend
+  const sources = [...new Set(chunksXY.map(c => c.id.replace(/-chunk\d+$/, '')))];
+  legendEl.innerHTML =
+    sources.map(s => {
+      const c = SOURCE_PALETTE[s] ?? '#888888';
+      return `<span class="dm-map-legend-item"><span class="dm-map-legend-dot" style="background:${c}"></span>${esc(s)}</span>`;
+    }).join('') +
+    `<span class="dm-map-legend-item"><span class="dm-map-legend-diamond"></span>query</span>`;
+}
+
+function timingRow(label, ms, bold = false, tooltip = '') {  const cls = bold ? ' dm-timing--total' : '';
   const bar = `<span class="dm-time-bar" style="--ms:${Math.min(ms,500)}"></span>`;
   const info = tooltip ? ` <span class="dm-info" title="${esc(tooltip)}">ⓘ</span>` : '';
   return `<dt class="${cls}">${label}${info}</dt><dd class="${cls}">${bar}${ms} ms</dd>`;

@@ -6,14 +6,16 @@ tags: [bio, background, education, about]
 
 # About Me
 
-My name is Lee Kwan Tze, a Computer Engineering undergraduate at the National University of Singapore. I enjoy building practical software and AI systems that solve real operational problems, from internal workflow tools to retrieval-augmented applications and computer vision solutions.
+Hi! I'm Lee Kwan Tze, a Computer Engineering undergraduate at the National University of Singapore. 
 
-I am especially interested in the intersection of software engineering and applied AI, where strong engineering fundamentals can turn research ideas into reliable production systems. I like working across the stack and have hands-on experience with web development, backend integration, and machine learning pipelines.
+I enjoy building software that solves real-world problems as well as the occasional tool to optimise my daily routine.
 
-Outside academics and internships, I stay involved in campus activities through music, student committees, and community-oriented events. These experiences have shaped how I collaborate with teams, communicate across disciplines, and execute projects end-to-end.
+I am passionate about the intersection of Large Language Models (LLMs) and agentic workflows. Specifically, I focus on making these systems more reliable and autonomous through Retrieval-Augmented Generation (RAG).
 
-## Education
+Outside academics and internships, I stay involved in campus activities through music, student committees, and community-oriented events.
 
-My full academic background is available at `/education`.
+Chat with this knowledge base [here](#/chat)
 
-**Current program:** National University of Singapore, Bachelor of Engineering in Computer Engineering (Aug 2025 - Aug 2029)
+[LinkedIn](https://www.linkedin.com/in/leekwantze)
+
+

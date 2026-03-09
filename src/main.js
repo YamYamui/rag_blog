@@ -23,8 +23,19 @@ const welcomeEl     = document.getElementById('chat-welcome');
 const kbContentEl   = document.getElementById('kb-content');
 
 // ─── Debug panel ─────────────────────────────────────────────────────────────
-const chatPageEl = document.getElementById('page-chat');
-const { bodyEl: debugBodyEl } = createDebugPanel(chatPageEl);
+const debugSidebarEl = document.getElementById('debug-sidebar');
+const debugToggleBtn = document.getElementById('debug-sidebar-toggle');
+const { bodyEl: debugBodyEl } = createDebugPanel(debugSidebarEl);
+
+function toggleDebugSidebar(forceOpen) {
+  const isOpen = debugSidebarEl.classList.contains('debug-sidebar--open');
+  const next = typeof forceOpen === 'boolean' ? forceOpen : !isOpen;
+  debugSidebarEl.classList.toggle('debug-sidebar--open', next);
+  debugToggleBtn.classList.toggle('debug-sidebar-toggle--active', next);
+  debugToggleBtn.setAttribute('aria-expanded', String(next));
+}
+
+debugToggleBtn.addEventListener('click', () => toggleDebugSidebar());
 
 // ─── State ────────────────────────────────────────────────────────────────────
 let worker      = null;
@@ -148,7 +159,7 @@ function onWorkerMessage({ data }) {
       enableInput();
       break;
     case 'results':
-      showResults(data.payload);
+      showResults(data.payload, data.queryTerms);
       break;
     case 'metrics':
       handleMetrics(data.payload);
@@ -220,17 +231,17 @@ function submitQuery(text) {
   thinkingEl = appendThinkingBubble(chatEl);
 
   if (useFallback && fallbackIdx) {
-    const { results: raw, index } = bm25Fallback(text, fallbackIdx, fallbackBM25);
+    const { results: raw, index, queryTerms } = bm25Fallback(text, fallbackIdx, fallbackBM25);
     fallbackBM25 = index;  // cache for next query
-    showResults(raw);
+    showResults(raw, queryTerms);
   } else if (workerReady) {
     worker.postMessage({ type: 'query', payload: text });
   }
 }
 
-function showResults(rawResults) {
+function showResults(rawResults, queryTerms = []) {
   clearThinking();
-  const formatted = formatResults(rawResults);
+  const formatted = formatResults(rawResults, 300, queryTerms);
   const summary   = synthesiseAnswer(formatted);
   const msgEl     = appendAssistantMessage(chatEl, summary, formatted);
   if (formatted.length > 0) renderQualityPill(msgEl, formatted[0]);
@@ -246,8 +257,11 @@ function handleMetrics(rawMetrics) {
     fusedResults: rawMetrics.fusedTop5,
     timing:       rawMetrics.timing,
     indexStats:   rawMetrics.indexStats,
+    queryXY:      rawMetrics.queryXY,
+    chunksXY:     rawMetrics.chunksXY,
   });
   renderMetrics(debugBodyEl, metrics);
+  toggleDebugSidebar(true);
 }
 
 function clearThinking() {

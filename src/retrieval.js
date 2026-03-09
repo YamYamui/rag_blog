@@ -1,8 +1,7 @@
 // src/retrieval.js
 // Orchestrates hybrid retrieval: BM25 sparse + cosine dense → RRF fusion.
 
-const RRF_K = 60; // Standard RRF constant. Higher = more forgiving of rank differences.
-const OVERLAP_THRESHOLD = 0.75; // Jaccard token overlap to consider chunks near-duplicates
+import { RRF_K, OVERLAP_THRESHOLD } from './config.js';
 
 /**
  * Reciprocal Rank Fusion.
@@ -14,15 +13,16 @@ const OVERLAP_THRESHOLD = 0.75; // Jaccard token overlap to consider chunks near
  * @param {number} k  RRF constant (default 60)
  * @returns {Array<{id:string, rrfScore:number, sourceRanks: number[]}>}
  */
-export function reciprocalRankFusion(rankedLists, k = RRF_K) {
+export function reciprocalRankFusion(rankedLists, k = RRF_K, weights = null) {
   const scores   = new Map(); // id → cumulative RRF score
   const srcRanks = new Map(); // id → array of per-list ranks (1-indexed)
 
   for (let li = 0; li < rankedLists.length; li++) {
     const list = rankedLists[li];
+    const w = weights?.[li] ?? 1;
     for (let rank = 0; rank < list.length; rank++) {
       const { id } = list[rank];
-      const contribution = 1 / (k + rank + 1);
+      const contribution = w / (k + rank + 1);
       scores.set(id, (scores.get(id) ?? 0) + contribution);
       if (!srcRanks.has(id)) srcRanks.set(id, new Array(rankedLists.length).fill(null));
       srcRanks.get(id)[li] = rank + 1; // 1-indexed
